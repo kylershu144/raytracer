@@ -95,6 +95,8 @@ public float4 sample(float2 uv, RendererUniform uniforms, inout RNG rng)
         return float4(rayMeshSampleRes.value.normal * 0.5 + 0.5, 1.0);
     }
 
+    return primColor; // NOTE: for asst3, ignoring volume
+
     // Ray volume intersection.
     float tMax = rayMeshSampleRes.hasValue ? rayMeshSampleRes.value.t : float.maxValue;
     float4 volumeColor = volumeSample(uv, uniforms, tMax, primColor);

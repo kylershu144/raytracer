@@ -101,6 +101,7 @@ public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform unifo
                 // the ray direction of the next bounce.
 
                 // TODO Step 4a: Student implementation starts here.
+                SampleBRDFResult brdfSample = sampleBRDF(parameters, rayOut, normal, uniforms, rng);
 
                 // TODO Step 4a: Student implementation ends here.
 
@@ -120,7 +121,7 @@ public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform unifo
                 {
                     // TODO Step 4b: Student implementation starts here.
                     
-                    throughput *= 0.0;
+                    throughput *= brdfSample.fr * max(dot(normal, brdfSample.sampledDirection), 0.0) / (brdfSample.sampledPdf + EPSILON);
                     
                     // TODO Step 4b: Student implementation ends here.
 
@@ -142,6 +143,7 @@ public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform unifo
 
                 // Step 4c: Update the ray for the next bounce.
                 // TODO Step 4c: Student implementation starts here.
+                ray = Ray(hitPoint + EPSILON * brdfSample.sampledDirection, brdfSample.sampledDirection);
 
                 // TODO Step 4c: Student implementation ends here.
 

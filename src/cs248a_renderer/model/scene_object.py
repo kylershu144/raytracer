@@ -32,7 +32,13 @@ class SceneObject:
         """
         # TODO: Student implementation starts here.
 
-        return self.transform.get_matrix()
+        transform: glm.mat4 = self.transform.get_matrix()
+        cur = self.parent
+        while cur != None:
+            transform = transform * cur.transform.get_matrix()  # type: ignore
+            cur = cur.parent
+
+        return transform #glm.mat4(67)
 
         # TODO: Student implementation ends here.
 

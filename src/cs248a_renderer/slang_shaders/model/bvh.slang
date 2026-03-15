@@ -88,13 +88,47 @@ public struct BVH<T>
     }
 
     // BVH traversal to find the closest hit.
-    public Optional<HitResult> hit(Ray ray)
+    public Optional<HitResult> hit(Ray ray, bool occlusionTest = false)
     {
         // Initialize traversal.
         Optional<HitResult> hitResult = Optional<HitResult>();
         HitStack<64> stack;
 
         // TODO: Student implementation starts here.
+        float minT = float.maxValue;
+        stack.push(0);
+
+        while (!stack.isEmpty()) {
+            BVHNode cur = nodes[stack.pop()];
+            float2 bboxHit = cur.hit(ray);
+
+            if (bboxHit.x >= minT || (bboxHit.x == 0.0 && bboxHit.y == 0.0)) {
+                continue;
+            }
+
+            if (cur.left == -1 && cur.right == -1) {
+                for (int i = cur.primLeft; i < cur.primRight; i++) {
+                    Optional<RayHitResult> resultOptional = primitives[i].hit(ray);
+                    if (resultOptional.hasValue && resultOptional.value.t < minT)
+                    {
+                        minT = resultOptional.value.t;
+                        hitResult = HitResult(primitives[i], resultOptional.value);
+
+                        if (occlusionTest) {
+                            return hitResult;
+                        }
+                    }
+                }
+            }
+            else {
+                if (cur.left != -1) {
+                    stack.push(cur.left);
+                }
+                if (cur.right != -1) {
+                    stack.push(cur.right);
+                }
+            }
+        }
 
         // TODO: Student implementation ends here.
 

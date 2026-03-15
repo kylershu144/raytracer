@@ -3,8 +3,8 @@ implementing "../renderer.slang";
 import math;
 import texture;
 
-public static uint MAX_STEPS = 1024;
-public static float EPSILON = 1e-2;
+public static uint MAX_STEPS = 256;
+public static float EPSILON = 1e-6;
 
 public static float STEP_SIZE = 0.01;
 public static float DENSITY_SCALE = 5.0;
@@ -20,9 +20,11 @@ public static float DENSITY_SCALE = 5.0;
 public float4 volumeSample(float2 uv, RendererUniform uniforms, float tMax, float4 primColor)
 {
     // TODO: Student implementation starts here.
-
-    return float4(1.0, 0.0, 1.0, 1.0);
-
+    Ray ray = uniforms.camera.generateRay(uv);
+    ray = ray.transform(uniforms.volume.invModelMatrix);
+    ray.tRange[1] = min(ray.tRange[1], tMax);
+    return accumulateColor<4>(ray, uniforms.volume.bound, MAX_STEPS, STEP_SIZE, DENSITY_SCALE, primColor, uniforms.volume.tex);
+    
     // TODO: Student implementation ends here.
 }
 
@@ -35,7 +37,21 @@ public float4 volumeSample(float2 uv, RendererUniform uniforms, float tMax, floa
 public void volumeSampleBwd(float2 uv, RendererUniform uniforms, float4 outGrad)
 {
     // TODO: Student implementation starts here.
+    Ray ray = uniforms.camera.generateRay(uv);
+    ray = ray.transform(uniforms.volume.invModelMatrix);
 
+    RNG rng = RNG(uint2(uv * uniforms.camera.canvasSize), (uv.y * uniforms.camera.canvasSize.x + uv.x) * 10000 + uniforms.seed);
+    Optional<RayMeshSampleResult> rayMeshSampleRes = meshSample(uv, uniforms, rng);
+
+    float4 primColor = uniforms.ambientColor;
+    if (rayMeshSampleRes.hasValue)
+    {
+        primColor = rayMeshSampleRes.value.color;
+        ray.tRange[1] = min(ray.tRange[1], rayMeshSampleRes.value.t);
+    }
+    DifferentialPtrPair<DiffTexture3D<float, 4>> diffPair = DifferentialPtrPair<DiffTexture3D<float, 4>>(uniforms.volume.tex, uniforms.volume.dTex);
+    bwd_diff(accumulateColor<4>)(ray, uniforms.volume.bound, MAX_STEPS, STEP_SIZE, DENSITY_SCALE, 
+        primColor, diffPair, outGrad);
     // TODO: Student implementation ends here.
 }
 
@@ -62,8 +78,31 @@ public float4 accumulateColor<let N : uint>(
     DiffTexture3D<float, 4> data)
 {
     // TODO: Student implementation starts here.
+    float2 tBounds = volumeBound.hit(ray);
+    if (ray.tRange[1] < tBounds[0] || ray.tRange[0] > tBounds[1]) {
+        return backgroundColor;
+    }
 
-    return float4(1.0, 0.0, 1.0, 1.0);
+    float4 r = backgroundColor;
+
+    // iterate backwards?
+    [MaxIters(256)]
+    for (int i = 0; i < maxSteps; i++) {
+        float t = tBounds[1] - i * stepSize;
+        if (t < tBounds[0] || t < ray.tRange[0]) break;
+
+        float3 pos = ray.origin + t * ray.direction;
+        float3 uvw = (pos - volumeBound.pMin) / (volumeBound.pMax - volumeBound.pMin);
+
+        float4 sample = sampleTrilinear(data, uvw);
+        float a = sample.a * densityScale * stepSize;
+
+        r.a = r.a * (1 - a) + a;
+        r.rgb = r.rgb * (1 - a) + sample.rgb * a;
+        // r = r * (1 - a);
+    }
+    return r;
+    // return float4(r.a, r.a, r.a, 1.0);
 
     // TODO: Student implementation ends here.
 }

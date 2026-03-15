@@ -28,10 +28,11 @@ public float3 getSampleIrradiance(LightSample lightSample, float3 normal, bool i
 public Ray getShadowRay(LightSample lightSample, float3 hitPoint)
 {
     const float EPSILON = 1e-2;
-    Ray shadowRay = Ray(float3(0.0), float3(0.0), float2(EPSILON, lightSample.lightDistance - EPSILON));
+    Ray shadowRay = Ray(float3(0.0), float3(0.0), float2(0, lightSample.lightDistance - EPSILON));
 
     // TODO: Student implementation starts here.
-
+    shadowRay.origin = hitPoint + EPSILON * lightSample.lightDirection;
+    shadowRay.direction = lightSample.lightDirection;
     // TODO: Student implementation ends here.
 
     return shadowRay;
@@ -44,6 +45,16 @@ public bool isLightOccluded(LightSample lightSample, float3 hitPoint, RendererUn
     // TODO: Student implementation starts here.
 
     // Step 1: Generate the shadow ray
+    Ray ray = getShadowRay(lightSample, hitPoint);
+    Optional<RayMeshIntersectionResult> hitResultMesh = rayMeshIntersection(ray, uniforms, false);
+
+    Optional<RectangularLight.LightHitResult> hitResultRectLight = rayRectangularLightIntersection(ray, uniforms);
+
+    if (hitResultMesh.hasValue) { // || hitResultRectLight.hasValue
+        occluded = true;
+        if (hitResultRectLight.hasValue && hitResultRectLight.value.t < hitResultMesh.value.closestHit.t) occluded = false;
+    }
+
 
     // Step 2: Check if the shadow ray intersects with any rectangular light or mesh.
     // HINT: Check the modified signature of `rayMeshIntersection` function in ray_mesh_intersection.slang.
@@ -99,6 +110,7 @@ public float3 evaluatePointLightContribution(StructuredBuffer<PointLight> pointL
         // TODO: Student implementation starts here.
 
         // Calculate the fall off factor for point light.
+        fallOffFactor = pow(lightSample.lightDistance, 2);
 
         // TODO: Student implementation ends here.
 
@@ -261,13 +273,48 @@ public SampleBRDFResult sampleBRDF(PhysicsBasedParameters parameters, float3 ray
             // Extra Credit: Fresnel effect for Glass BRDF
             // TODO: Student implementation starts here.
 
-            // Naive Glass BRDF sampling without Fresnel effect.
-            GlassBRDF brdf = GlassBRDF(parameters.albedo, parameters.ior);
-            fr = brdf.evaluate();
-            sampledDirection = brdf.sample(rayOut, normal);
-            float glassPdf = brdf.pdf(sampledDirection, rayOut, normal);
-            // Account for the probability of choosing glass in the overall PDF
-            sampledPdf = glassPdf;
+            float eta1 = 1.0;
+            float eta2 = parameters.ior;
+
+            float cosTheta = dot(rayOut, normal);
+
+            if (cosTheta < 0.0)
+            {
+                cosTheta = -cosTheta;
+
+                float temp = eta1;
+                eta1 = eta2;
+                eta2 = temp;
+            }
+
+            float R0 = (eta1 - eta2) / (eta1 + eta2);
+            R0 *= R0;
+
+            float Rth = R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5);
+
+            float rand = rng.next_1d();
+
+            if (rand < Rth)
+            {
+                // Reflect
+                MirrorBRDF brdf = MirrorBRDF(parameters.albedo);
+                fr = brdf.evaluate();
+                sampledDirection = brdf.sample(rayOut, normal);
+                sampledPdf = brdf.pdf(sampledDirection, rayOut, normal);
+
+                sampledPdf = Rth * sampledPdf; 
+            }
+            else
+            {
+                // Refract
+                GlassBRDF brdf = GlassBRDF(parameters.albedo, parameters.ior);
+                fr = brdf.evaluate();
+                sampledDirection = brdf.sample(rayOut, normal);
+                float glassPdf = brdf.pdf(sampledDirection, rayOut, normal);
+
+                sampledPdf = (1.0 - Rth) * glassPdf;
+            }
+
 
             // TODO: Student implementation ends here.
         }

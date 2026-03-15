@@ -25,9 +25,29 @@ public struct Volume
     public Optional<RayHitResult> hit(Ray ray, SharedTexture3DBuffer<float4> volumeTexBuf)
     {
         // TODO: Student implementation starts here.
+        float2 tHit = this.bound.hit(ray);
+        if (tHit.x == 0.0 && tHit.y == 0.0) {
+            return Optional<RayHitResult>();
+        }
+
+        for (float t = tHit.x; t <= tHit.y; t += STEP_SIZE) {
+            float3 hitPoint = ray.origin + t * ray.direction;
+            if (volumeTexBuf.trilinearSample(tex, getUVW(hitPoint)).w > DENSITY_THRESHOLD)
+            {
+                float3 gradient = float3(
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint + float3(FINITE_DIFF_DELTA, 0, 0))).w - 
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint - float3(FINITE_DIFF_DELTA, 0, 0))).w,
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint + float3(0, FINITE_DIFF_DELTA, 0))).w - 
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint - float3(0, FINITE_DIFF_DELTA, 0))).w,
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint + float3(0, 0, FINITE_DIFF_DELTA))).w - 
+                    volumeTexBuf.trilinearSample(tex, getUVW(hitPoint - float3(0, 0, FINITE_DIFF_DELTA))).w
+                );
+                return RayHitResult(t, -normalize(gradient));
+                // return RayHitResult(t, float3(0, 0, 0));
+            }
+        }
 
         // TODO: Student implementation ends here.
-
         return Optional<RayHitResult>();
     }
 

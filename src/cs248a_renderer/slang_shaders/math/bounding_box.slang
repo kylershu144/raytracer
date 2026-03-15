@@ -35,16 +35,54 @@ public struct BoundingBox
         return 2 * (size.x * size.y + size.y * size.z + size.z * size.x);
     }
 
+    public float bboxFaceIntersection(Ray ray, float3[4] faceVertices)
+    {
+        float3 diff = this.pMax - this.pMin;
+
+        float3 ab = faceVertices[1] - faceVertices[0];
+        float3 ac = faceVertices[2] - faceVertices[0];
+
+        float3 planeNormal = normalize(cross(ab, ac));
+        float c = dot(planeNormal, faceVertices[0]);
+
+        if (dot(planeNormal, ray.direction) == 0) return -1.0;
+        float t = (c - dot(planeNormal, ray.origin)) / dot(planeNormal, ray.direction);
+        float3 intersect = ray.origin + t * ray.direction;
+
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) % 4;
+            float3 edge = faceVertices[j] - faceVertices[i];
+            float3 edgeNormal = normalize(cross(edge, planeNormal));
+            float edgeC = dot(edgeNormal, faceVertices[i]);
+            if (dot(intersect, edgeNormal) > edgeC) return -1.0;
+        }
+
+        return t;
+    }
+
     public float2 hit(Ray ray)
     {
-        float tNear = 0.0;
-        float tFar = 0.0;
-
         // TODO: Student implementation starts here.
+        float tMin = float.maxValue;
+        float tMax = -float.maxValue;
+
+        float3 invDir = 1.0 / ray.direction;
+        float3 t0 = (this.pMin - ray.origin) * invDir;
+        float3 t1 = (this.pMax - ray.origin) * invDir;
+
+        float3 tMinFace = min(t0, t1);
+        float3 tMaxFace = max(t0, t1);
+
+        tMin = max(tMinFace.x, max(tMinFace.y, tMinFace.z));
+        tMax = min(tMaxFace.x, min(tMaxFace.y, tMaxFace.z));
+
+        if (tMin > tMax || tMax < 0) {
+            return float2(0.0, 0.0);
+        }
+
+        return float2(tMin, tMax);
 
         // TODO: Student implementation ends here.
-
-        return float2(tNear, tFar);
     }
 };
 

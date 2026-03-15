@@ -30,15 +30,27 @@ public struct LambertianBRDF
         {
             // TODO: Student implementation starts here.
 
-            sampleDirection = sampleDirection;
+            float r = sqrt(randomEpsilon.x);
+            float phi = 2.0 * PI * randomEpsilon.y;
+
+            float x = r * cos(phi);
+            float y = r * sin(phi);
+            float z = sqrt(1.0 - randomEpsilon.x);
+
+            float3 localDir = float3(x, z, y);
+
+            // Transform to world space
+            sampleDirection = normalize(mul(localToWorldMatrix, localDir));
 
             // TODO: Student implementation ends here.
         }
         else // uniform sampling, use uniform sampling by default
         {
             // TODO: Student implementation starts here.
-
-            sampleDirection = sampleDirection;
+            float z = randomEpsilon.x;
+            float r = sqrt(max(0.0, 1 - z * z));
+            float phi = 2 * PI * randomEpsilon.y;
+            sampleDirection = mul(localToWorldMatrix, normalize(float3(r * cos(phi), z, r * sin(phi))));
 
             // TODO: Student implementation ends here.
         }
@@ -54,16 +66,15 @@ public struct LambertianBRDF
         if (this.useCosineWeightedSampling)
         {
             // TODO: Student implementation starts here.
-            
-            pdf = pdf;
+            float cosTheta = max(dot(normalize(normal), normalize(rayIn)), 0.0);
+            pdf = cosTheta * INV_PI;
 
             // TODO: Student implementation ends here.
         }
         else // uniform sampling, use uniform sampling by default
         {
             // TODO: Student implementation starts here.
-            
-            pdf = pdf;
+            pdf = INV_TWO_PI;
 
             // TODO: Student implementation ends here.
         }

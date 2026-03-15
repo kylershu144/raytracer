@@ -71,7 +71,21 @@ class MaterialField[T]:
         textures = [base_texture]
 
         # TODO: Student implementation starts here.
-
+        while len(textures) < self.MAX_MIP_LEVELS:
+            last_texture = textures[-1]
+            h, w, c = last_texture.shape
+            if h == 1 and w == 1:
+                break
+            new_h = max(1, h // 2)
+            new_w = max(1, w // 2)
+            # Downsample using simple averaging
+            new_texture = np.zeros((new_h, new_w, c), dtype=last_texture.dtype)
+            for i in range(new_h):
+                for j in range(new_w):
+                    # Get the 2x2 block from the last texture
+                    block = last_texture[i*2:min(i*2+2, h), j*2:min(j*2+2, w), :]
+                    new_texture[i, j, :] = np.mean(block, axis=(0, 1))
+            textures.append(new_texture)
         # TODO: Student implementation ends here.
 
         self.textures = textures

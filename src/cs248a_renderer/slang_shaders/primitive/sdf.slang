@@ -96,8 +96,7 @@ public struct SphereSDF : ISDF
     public float sdf(float3 point)
     {
         // TODO: Student implementation starts here.
-
-        return 0.0;
+        return length(center - point) - radius;
 
         // TODO: Student implementation ends here.
     }
@@ -106,7 +105,7 @@ public struct SphereSDF : ISDF
     {
         // TODO: Student implementation starts here.
 
-        return float3(0.0);
+        return normalize(point - center);
 
         // TODO: Student implementation ends here.
     }
@@ -122,7 +121,9 @@ public struct CubeSDF : ISDF
     {
         // TODO: Student implementation starts here.
 
-        return 0.0;
+        float3 localPoint = mul(this.invModelMatrix, float4(point, 1.0)).xyz;
+        float3 d = abs(localPoint) - this.size;
+        return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0);
 
         // TODO: Student implementation ends here.
     }
@@ -131,7 +132,22 @@ public struct CubeSDF : ISDF
     {
         // TODO: Student implementation starts here.
 
-        return float3(0.0);
+        float3 localPoint = mul(this.invModelMatrix, float4(point, 1.0)).xyz;
+        float3 d = abs(localPoint);
+        float max = max(d.x, max(d.y, d.z));
+        if (d.x == max)
+        {
+            return float3(sign(localPoint.x), 0.0, 0.0);
+        }
+        else if (d.y == max)
+        {
+            return float3(0.0, sign(localPoint.y), 0.0);
+        }
+        else
+        {
+            return float3(0.0, 0.0, sign(localPoint.z));
+        }
+    
 
         // TODO: Student implementation ends here.
     }

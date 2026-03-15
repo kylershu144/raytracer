@@ -39,7 +39,9 @@ public struct RectangularLight
         float pdf = 1.0;
 
         // TODO: Student implementation starts here.
-
+        float cosThetaP = max(dot(normalize(normal), normalize(hitPoint - pointOnLight)), 0.0);
+        pdf = pow(length(pointOnLight - hitPoint), 2) / (this.area * cosThetaP + EPSILON);
+        
         // TODO: Student implementation ends here.
 
         return pdf;

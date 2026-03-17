@@ -2,6 +2,7 @@ implementing "../renderer.slang";
 
 import brdf;
 import light;
+import utils;
 
 public struct SampleBRDFResult
 {
@@ -10,14 +11,28 @@ public struct SampleBRDFResult
     public float sampledPdf;
 }
 
-public float3 getSampleIrradiance(LightSample lightSample, float3 normal, bool isLambertian, float fallOffFactor = 1.0)
+public float3 getSampleIrradiance(LightSample lightSample, float3 normal, bool isLambertian, float fallOffFactor = 1.0, bool st)
 {
     const float EPSILON = 1e-2;
     float3 lightDirection = lightSample.lightDirection;
     if (isLambertian)
     {
         float cosTheta = max(dot(normalize(normal), normalize(lightDirection)), 0.0);
-        return lightSample.radiance * cosTheta / (fallOffFactor + EPSILON);
+        float levels = 4.0;
+
+        // discretize lighting
+        // cosTheta = floor(cosTheta * levels) / (levels - 1.0);
+        float3 newColor = lightSample.radiance;
+        // if (st) {
+        //     cosTheta *= cosTheta;
+        //     // newColor = rgb2hsv(lightSample.radiance);
+        //     // newColor.y += .2;
+        //     // newColor = hsv2rgb(newColor);
+        // }
+        // // else cosTheta = sqrt(cosTheta);
+        // // if (!st) cosTheta = 1;
+
+        return newColor * cosTheta / (fallOffFactor + EPSILON);
     }
     else
     {
@@ -38,8 +53,9 @@ public Ray getShadowRay(LightSample lightSample, float3 hitPoint)
     return shadowRay;
 }
 
-public bool isLightOccluded(LightSample lightSample, float3 hitPoint, RendererUniform uniforms)
+public bool isLightOccluded(LightSample lightSample, float3 hitPoint, RendererUniform uniforms, bool st)
 {
+    if (!st) return false;
     bool occluded = false;
 
     // TODO: Student implementation starts here.
@@ -66,7 +82,7 @@ public bool isLightOccluded(LightSample lightSample, float3 hitPoint, RendererUn
     return occluded;
 }
 
-public float3 evaluateFlashLightContribution(float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, float3 rayOut, bool lambertianScattering = false)
+public float3 evaluateFlashLightContribution(float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, float3 rayOut, bool lambertianScattering = false, bool st)
 {
     float3 outgoingRadiance = float3(0.0);
     float fallOffFactor = 1.0;  // Never falls off with distance
@@ -78,13 +94,13 @@ public float3 evaluateFlashLightContribution(float3 hitPoint, float3 fr, float3 
     // always points at the closest hit from camera, and returning back to it.
     // Therefore, ideally we would not need to check for occlusion.
     // Yet, we do it anyway to be consistent with the function bodies of other light sources.
-    bool occluded = isLightOccluded(lightSample, hitPoint, uniforms);
+    bool occluded = isLightOccluded(lightSample, hitPoint, uniforms, st);
     if (occluded)
     {
         return outgoingRadiance;
     }
 
-    float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor);
+    float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor, st);
     // PDF is used for Monte-Carlo integration. But it is only needed for light 
     // sources that have an area, for eg. rectangular light. Therefore, we are 
     // using `lightSample.pdf=1` here.
@@ -94,14 +110,14 @@ public float3 evaluateFlashLightContribution(float3 hitPoint, float3 fr, float3 
     return outgoingRadiance;
 }
 
-public float3 evaluatePointLightContribution(StructuredBuffer<PointLight> pointLightBuf, uint pointLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, bool lambertianScattering = false)
+public float3 evaluatePointLightContribution(StructuredBuffer<PointLight> pointLightBuf, uint pointLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, bool lambertianScattering = false, bool st)
 {
     float3 outgoingRadiance = float3(0.0);
     float fallOffFactor = 1.0;  // Point light falls off with distance. Calculate it below.
     for (int i = 0; i < pointLightCount; i++)
     {
         LightSample lightSample = pointLightBuf[i].sample(hitPoint);
-        bool occluded = isLightOccluded(lightSample, hitPoint, uniforms);
+        bool occluded = isLightOccluded(lightSample, hitPoint, uniforms, st);
         if (occluded)
         {
             continue;
@@ -114,7 +130,7 @@ public float3 evaluatePointLightContribution(StructuredBuffer<PointLight> pointL
 
         // TODO: Student implementation ends here.
 
-        float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor);
+        float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor, st);
         // PDF is used for Monte-Carlo integration. But it is only needed for light
         // sources that have an area, for eg. rectangular light. Therefore, we are
         // using `lightSample.pdf=1` here.
@@ -124,19 +140,19 @@ public float3 evaluatePointLightContribution(StructuredBuffer<PointLight> pointL
     return outgoingRadiance;
 }
 
-public float3 evaluateDirectionalLightContribution(StructuredBuffer<DirectionalLight> directionalLightBuf, uint directionalLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, bool lambertianScattering = false)
+public float3 evaluateDirectionalLightContribution(StructuredBuffer<DirectionalLight> directionalLightBuf, uint directionalLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, bool lambertianScattering = false, bool st)
 {
     float3 outgoingRadiance = float3(0.0);
     float fallOffFactor = 1.0; // Never falls off with distance
     for (int i = 0; i < directionalLightCount; i++)
     {
         LightSample lightSample = directionalLightBuf[i].sample();
-        bool occluded = isLightOccluded(lightSample, hitPoint, uniforms);
+        bool occluded = isLightOccluded(lightSample, hitPoint, uniforms, st);
         if (occluded)
         {
             continue;
         }
-        float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor);
+        float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor, st);
         // PDF is used for Monte-Carlo integration. But it is only needed for light
         // sources that have an area, for eg. rectangular light. Therefore, we are
         // using `lightSample.pdf=1` here.
@@ -146,7 +162,7 @@ public float3 evaluateDirectionalLightContribution(StructuredBuffer<DirectionalL
     return outgoingRadiance;
 }
 
-public float3 evaluateRectangularLightContribution(StructuredBuffer<RectangularLight> rectangularLightBuf, uint rectangularLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, inout RNG rng, bool lambertianScattering = false)
+public float3 evaluateRectangularLightContribution(StructuredBuffer<RectangularLight> rectangularLightBuf, uint rectangularLightCount, float3 hitPoint, float3 fr, float3 normal, RendererUniform uniforms, inout RNG rng, bool lambertianScattering = false, bool st)
 {
     float3 outgoingRadiance = float3(0.0);
     float fallOffFactor = 1.0;  // Never falls off with distance
@@ -159,12 +175,12 @@ public float3 evaluateRectangularLightContribution(StructuredBuffer<RectangularL
         {
             float2 randomEpsilon = rng.next_2d();
             LightSample lightSample = rectangularLightBuf[i].sample(hitPoint, randomEpsilon);
-            bool occluded = isLightOccluded(lightSample, hitPoint, uniforms);
+            bool occluded = isLightOccluded(lightSample, hitPoint, uniforms, st);
             if (occluded)
             {
                 continue;
             }
-            float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor);
+            float3 sampleIrradiance = getSampleIrradiance(lightSample, normal, lambertianScattering, fallOffFactor, st);
             accumulatedIrradiance += sampleIrradiance / lightSample.pdf;
         }
         float3 irradiance = accumulatedIrradiance / uniforms.numRectangularLightSamples;
@@ -175,7 +191,7 @@ public float3 evaluateRectangularLightContribution(StructuredBuffer<RectangularL
     return outgoingRadiance;
 }
 
-public float3 getDirectIllumination(PhysicsBasedParameters parameters, RendererUniform uniforms, float3 rayOut, float3 normal, float3 hitPoint, inout RNG rng)
+public float3 getDirectIllumination(PhysicsBasedParameters parameters, RendererUniform uniforms, float3 rayOut, float3 normal, float3 hitPoint, inout RNG rng, bool st)
 {
     float3 outgoingRadiance = float3(0.0);
     float3 fr = float3(0.0);
@@ -226,14 +242,14 @@ public float3 getDirectIllumination(PhysicsBasedParameters parameters, RendererU
         {
             fr = retroreflectiveLambertianFr;
         }
-        float3 flashLightContribution = evaluateFlashLightContribution(hitPoint, fr, normal, uniforms, rayOut, lambertianScattering);
+        float3 flashLightContribution = evaluateFlashLightContribution(hitPoint, fr, normal, uniforms, rayOut, lambertianScattering, st);
         outgoingRadiance = flashLightContribution;
     }
     else
     {
-        float3 pointLightContribution = evaluatePointLightContribution(uniforms.pointLightBuf, uniforms.pointLightCount, hitPoint, fr, normal, uniforms, lambertianScattering);
-        float3 directionalLightContribution = evaluateDirectionalLightContribution(uniforms.directionalLightBuf, uniforms.directionalLightCount, hitPoint, fr, normal, uniforms, lambertianScattering);
-        float3 rectangularLightContribution = evaluateRectangularLightContribution(uniforms.rectangularLightBuf, uniforms.rectangularLightCount, hitPoint, fr, normal, uniforms, rng, lambertianScattering);
+        float3 pointLightContribution = evaluatePointLightContribution(uniforms.pointLightBuf, uniforms.pointLightCount, hitPoint, fr, normal, uniforms, lambertianScattering, st);
+        float3 directionalLightContribution = evaluateDirectionalLightContribution(uniforms.directionalLightBuf, uniforms.directionalLightCount, hitPoint, fr, normal, uniforms, lambertianScattering, st);
+        float3 rectangularLightContribution = evaluateRectangularLightContribution(uniforms.rectangularLightBuf, uniforms.rectangularLightCount, hitPoint, fr, normal, uniforms, rng, lambertianScattering, st);
         outgoingRadiance = pointLightContribution + directionalLightContribution + rectangularLightContribution;
     }
 

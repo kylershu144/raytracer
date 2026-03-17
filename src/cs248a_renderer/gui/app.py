@@ -115,6 +115,14 @@ class InteractiveRendererApp(App):
     min_prim_per_node: BehaviorSubject[int] = BehaviorSubject(32)
     always_build_bvh: BehaviorSubject[bool] = BehaviorSubject(True)
 
+    # Cel shading parameters
+    use_cel_shading: BehaviorSubject[bool] = BehaviorSubject(False)
+    use_screentone: BehaviorSubject[bool] = BehaviorSubject(False)
+    screentone_spread: BehaviorSubject[int] = BehaviorSubject(128)
+    screentone_radius: BehaviorSubject[float] = BehaviorSubject(0.5)
+    outline_threshold: BehaviorSubject[float] = BehaviorSubject(0.3)
+    outline_color: BehaviorSubject[Tuple[float, float, float]] = BehaviorSubject((0.0, 0.0, 0.0))
+
     _scene_wizard_open: Subject[None] = Subject()
     _preview_open: BehaviorSubject[bool] = BehaviorSubject(True)
     _renderer_open: BehaviorSubject[bool] = BehaviorSubject(True)
@@ -241,6 +249,12 @@ class InteractiveRendererApp(App):
                 spp=self.spp,
                 max_bvh_nodes=self.max_bvh_nodes,
                 min_prim_per_node=self.min_prim_per_node,
+                use_cel_shading=self.use_cel_shading,
+                use_screentone=self.use_screentone,
+                screentone_spread=self.screentone_spread,
+                screentone_radius=self.screentone_radius,
+                outline_threshold=self.outline_threshold,
+                outline_color=self.outline_color,
             ),
             RendererWindow(
                 device=self.device,
@@ -277,6 +291,12 @@ class InteractiveRendererApp(App):
                 smooth_shading=self.smooth_shading.value,
                 num_rectangular_light_samples=self.num_rectangular_light_samples.value,
                 path_trace_depth=self.path_trace_depth.value,
+                use_cel_shading=self.use_cel_shading.value,
+                use_screentone=self.use_screentone.value,
+                screentone_spread=self.screentone_spread.value,
+                screentone_radius=self.screentone_radius.value,
+                outline_threshold=self.outline_threshold.value,
+                outline_color=self.outline_color.value,
             )
             self.render_progress.on_next(
                 (self.core_renderer.num_samples, self.target_spp)

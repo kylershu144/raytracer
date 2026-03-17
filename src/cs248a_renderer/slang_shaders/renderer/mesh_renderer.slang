@@ -11,7 +11,7 @@ public struct RayMeshSampleResult
     public float4 color;
 }
 
-public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform uniforms, inout RNG rng)
+public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform uniforms, inout RNG rng, bool st)
 {
     Ray ray = uniforms.camera.generateRay(uv);
     float3 radiance = float3(0.0);
@@ -91,9 +91,49 @@ public Optional<RayMeshSampleResult> meshSample(float2 uv, RendererUniform unifo
                     return Optional<RayMeshSampleResult>(RayMeshSampleResult(result.t, normal, color));
                 }
 
+                // Cel shading outline detection
+                if (uniforms.useCelShading && depth == 0)
+                {
+                    float eps = 1e-3;
+
+                    float centerDepth = result.t;
+
+                    float maxEdge = 0.0;
+
+                    float2 offsets[4] = {
+                        float2(eps, 0),
+                        float2(-eps, 0),
+                        float2(0, eps),
+                        float2(0, -eps)
+                    };
+
+                    for (int i = 0; i < 4; i++)
+                    {
+                        Ray ray = uniforms.camera.generateRay(uv + offsets[i]);
+                        Optional<RayMeshIntersectionResult> r = rayMeshIntersection(ray, uniforms);
+
+                        // hit next to miss → strong silhouette
+                        if (!r.hasValue)
+                        {
+                            return Optional<RayMeshSampleResult>(RayMeshSampleResult(result.t, normal, float4(uniforms.outlineColor, 1)));
+                        }
+
+                        float neighborDepth = r.value.closestHit.t;
+
+                        float relDepth = abs(centerDepth - neighborDepth) / min(centerDepth, neighborDepth);
+
+                        maxEdge = max(maxEdge, relDepth);
+                    }
+
+                    if (maxEdge > 10 * eps)
+                    {
+                        return Optional<RayMeshSampleResult>(RayMeshSampleResult(result.t, normal, float4(uniforms.outlineColor, 1)));
+                    }
+                }
+
                 // Step 3: Compute the direct illumination at the hit point using the Material Parameters.
                 float3 rayOut = -ray.direction;
-                float3 directIllumination = getDirectIllumination(parameters, uniforms, rayOut, normal, hitPoint, rng);
+                float3 directIllumination = getDirectIllumination(parameters, uniforms, rayOut, normal, hitPoint, rng, st);
                 radiance += directIllumination * throughput;
 
                 // TODO: Student implementation starts here.

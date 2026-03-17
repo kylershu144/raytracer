@@ -41,7 +41,7 @@ public void volumeSampleBwd(float2 uv, RendererUniform uniforms, float4 outGrad)
     ray = ray.transform(uniforms.volume.invModelMatrix);
 
     RNG rng = RNG(uint2(uv * uniforms.camera.canvasSize), (uv.y * uniforms.camera.canvasSize.x + uv.x) * 10000 + uniforms.seed);
-    Optional<RayMeshSampleResult> rayMeshSampleRes = meshSample(uv, uniforms, rng);
+    Optional<RayMeshSampleResult> rayMeshSampleRes = meshSample(uv, uniforms, rng, true);
 
     float4 primColor = uniforms.ambientColor;
     if (rayMeshSampleRes.hasValue)

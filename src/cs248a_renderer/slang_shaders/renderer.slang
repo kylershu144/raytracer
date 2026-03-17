@@ -63,7 +63,46 @@ public struct RendererUniform
     public bool visualizeLevelOfDetail;
     public bool visualizeAlbedo;
     public bool smoothShading;
+
+    // Cel shader implementation
+    public bool useCelShading;
+    public bool useScreentone;
+    public uint screentoneSpread;
+    public float screentoneRadius;
+    public float outlineThreshold;  // Controls outline sensitivity (0.0-1.0, lower = thicker outlines)
+    public float3 outlineColor;     // Color of the outlines
 }
+
+public bool isScreentone(uint2 tid, RendererUniform uniforms)
+{
+    float2 canvas = uniforms.camera.canvasSize;
+
+    float grid = 256.0;
+
+    // normalized pixel coordinates
+    float2 uv = float2(tid) / canvas;
+
+    // convert to grid coordinates
+    float2 gridPos = uv * grid;
+
+    // integer cell index
+    int2 cell = int2(gridPos);
+
+    // checkerboard condition
+    bool checker = ((cell.x + cell.y) % 2) == 0;
+
+    // center of this grid cell
+    float2 center = (float2(cell) + 0.5) / grid;
+
+    // distance from pixel to center
+    float dist = distance(uv, center);
+
+    // circle radius (half cell size works well)
+    float radius = 0.5 / grid;
+
+    return checker && dist < radius;
+}
+
 
 /**
  * Sample the scene at the given uv coordinate.
@@ -71,11 +110,11 @@ public struct RendererUniform
  * @param uniforms The renderer uniform containing camera, sampling, and scene information.
  * @return The color of the ray sample at the given uv coordinate.
  */
-public float4 sample(float2 uv, RendererUniform uniforms, inout RNG rng)
+public float4 sample(float2 uv, RendererUniform uniforms, inout RNG rng, bool st)
 {
     // Ray mesh intersection.
 
-    Optional<RayMeshSampleResult> rayMeshSampleRes = meshSample(uv, uniforms, rng);
+    Optional<RayMeshSampleResult> rayMeshSampleRes = meshSample(uv, uniforms, rng, st);
 
     float4 primColor = uniforms.ambientColor;
     if (rayMeshSampleRes.hasValue)
@@ -116,13 +155,15 @@ public float4 render(uint2 tid, RendererUniform uniforms, float4 currentColor)
     // float2 uv = (float2(tid) + 0.5) / float2(uniforms.camera.canvasSize);
     // return sample(uv, uniforms);
 
+    bool st = isScreentone(tid, uniforms);
+
     float4 outputColor = float4(0.0, 0.0, 0.0, 0.0);
     RNG rng = RNG(tid, (tid.y * uniforms.camera.canvasSize.x + tid.x) * 10000 + uniforms.seed);
 
     // Calculate screen space uv coordinate.
     float2 offset = rng.next_2d();
     float2 uv = (float2(tid) + offset) / float2(uniforms.camera.canvasSize);
-    outputColor += sample(uv, uniforms, rng);
+    outputColor += sample(uv, uniforms, rng, st);
 
     return currentColor * (uniforms.numSamples - 1) / uniforms.numSamples + outputColor / uniforms.numSamples;
 }

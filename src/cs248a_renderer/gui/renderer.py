@@ -89,6 +89,12 @@ class RendererConfigWindowArgs(WindowArgs):
     spp: BehaviorSubject[int]
     max_bvh_nodes: BehaviorSubject[int]
     min_prim_per_node: BehaviorSubject[int]
+    use_cel_shading: BehaviorSubject[bool]
+    use_screentone: BehaviorSubject[bool]
+    screentone_spread: BehaviorSubject[int]
+    screentone_radius: BehaviorSubject[float]
+    outline_threshold: BehaviorSubject[float]
+    outline_color: BehaviorSubject[Tuple[float, float, float]]
 
 
 class RendererConfigWindow(Window):
@@ -105,6 +111,12 @@ class RendererConfigWindow(Window):
     _spp: BehaviorSubject[int]
     _max_bvh_nodes: BehaviorSubject[int]
     _min_prim_per_node: BehaviorSubject[int]
+    _use_cel_shading: BehaviorSubject[bool]
+    _use_screentone: BehaviorSubject[bool]
+    _screentone_spread: BehaviorSubject[int]
+    _screentone_radius: BehaviorSubject[float]
+    _outline_threshold: BehaviorSubject[float]
+    _outline_color: BehaviorSubject[Tuple[float, float, float]]
 
     def __init__(self, **kwargs: Unpack[RendererConfigWindowArgs]) -> None:
         super().__init__(**kwargs)
@@ -121,6 +133,12 @@ class RendererConfigWindow(Window):
         self._spp = kwargs["spp"]
         self._max_bvh_nodes = kwargs["max_bvh_nodes"]
         self._min_prim_per_node = kwargs["min_prim_per_node"]
+        self._use_cel_shading = kwargs["use_cel_shading"]
+        self._use_screentone = kwargs["use_screentone"]
+        self._screentone_spread = kwargs["screentone_spread"]
+        self._screentone_radius = kwargs["screentone_radius"]
+        self._outline_threshold = kwargs["outline_threshold"]
+        self._outline_color = kwargs["outline_color"]
 
     def render_window(self, time: float, delta_time: float, open: bool | None) -> bool:
         with imgui_ctx.begin("Renderer Config", p_open=open) as window:
@@ -200,6 +218,54 @@ class RendererConfigWindow(Window):
             if changed:
                 value = max(1, value)
                 self._spp.on_next(value)
+
+            imgui.separator_text("Cel Shading")
+
+            changed, value = imgui.checkbox(
+                "Use Cel Shading", self._use_cel_shading.value
+            )
+            if changed:
+                self._use_cel_shading.on_next(value)
+
+            changed, value = imgui.checkbox(
+                "Use Screentone", self._use_screentone.value
+            )
+            if changed:
+                self._use_screentone.on_next(value)
+
+            changed, value = imgui.slider_float(
+                "Outline Threshold##outline_threshold",
+                self._outline_threshold.value,
+                0.0,
+                1.0,
+            )
+            if changed:
+                self._outline_threshold.on_next(value)
+
+            r, g, b = self._outline_color.value
+            changed, color = imgui.color_edit3(
+                "Outline Color##outline_color",
+                r, g, b,
+            )
+            if changed:
+                self._outline_color.on_next((color[0], color[1], color[2]))
+
+            changed, value = imgui.input_int(
+                "Screentone Spread##screentone_spread",
+                self._screentone_spread.value,
+            )
+            if changed:
+                value = max(1, value)
+                self._screentone_spread.on_next(value)
+
+            changed, value = imgui.slider_float(
+                "Screentone Radius##screentone_radius",
+                self._screentone_radius.value,
+                0.0,
+                1.0,
+            )
+            if changed:
+                self._screentone_radius.on_next(value)
 
             imgui.separator_text("BVH Settings")
 

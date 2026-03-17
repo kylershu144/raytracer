@@ -84,6 +84,7 @@ class Scene:
         :param obj: The SceneObject to add.
         :param parent_name: The name of the parent SceneObject.
         """
+        print(obj.name)
         parent = self.lookup.get(parent_name)
         if parent is None:
             raise ValueError(f"Parent object '{parent_name}' not found in scene.")

@@ -11,6 +11,7 @@ dependencies = [
     "jupyterlab>=4.4.9",
     "matplotlib>=3.10.6",
     "open3d>=0.19.0",
+    "opencv-python>=4.13.0.92",
     "pyntcloud>=0.3.1",
     "pytest>=9.0.1",
     "pytest-benchmark>=5.2.3",

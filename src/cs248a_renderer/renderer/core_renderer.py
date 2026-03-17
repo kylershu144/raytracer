@@ -327,6 +327,12 @@ class Renderer:
         num_rectangular_light_samples: int = 1,
         path_trace_depth: int = 1,
         use_cosine_weighted_sampling: bool = False,
+        use_cel_shading: bool = False,
+        use_screentone: bool = False,
+        screentone_spread: int = 128,
+        screentone_radius: float = 0.5,
+        outline_threshold: float = 0.3,
+        outline_color: Tuple[float, float, float] = (0.0, 0.0, 0.0),
     ) -> Dict:
         """Build the uniforms dictionary for rendering."""
         focal_length = (0.5 * float(self._render_target.height)) / np.tan(
@@ -361,6 +367,12 @@ class Renderer:
             "numRectangularLightSamples": num_rectangular_light_samples,
             "pathTraceDepth": path_trace_depth,
             "useCosineWeightedSampling": use_cosine_weighted_sampling,
+            "useCelShading": use_cel_shading,
+            "useScreentone": use_screentone,
+            "screentoneSpread": screentone_spread,
+            "screentoneRadius": screentone_radius,
+            "outlineThreshold": outline_threshold,
+            "outlineColor": np.ascontiguousarray(outline_color, dtype=np.float32),
         }
         if self._physics_based_material_texture_buf is not None:
             uniforms["physicsBasedMaterialTextureBuf"] = {
@@ -481,6 +493,12 @@ class Renderer:
         disable_lambert_cosine_law: bool = False,
         fresnel_effect: bool = True,
         use_cosine_weighted_sampling: bool = False,
+        use_cel_shading: bool = True,
+        use_screentone: bool = True,
+        screentone_spread: int = 128,
+        screentone_radius: float = 0.5,
+        outline_threshold: float = 0.3,
+        outline_color: Tuple[float, float, float] = (0.0, 0.0, 0.0),
     ) -> None:
         """Render the loaded scene."""
         uniforms = self._build_render_uniforms(
@@ -498,6 +516,12 @@ class Renderer:
             path_trace_depth=path_trace_depth,
             use_cosine_weighted_sampling=use_cosine_weighted_sampling,
             fresnel_effect=fresnel_effect,
+            use_cel_shading=use_cel_shading,
+            use_screentone=use_screentone,
+            screentone_spread=screentone_spread,
+            screentone_radius=screentone_radius,
+            outline_threshold=outline_threshold,
+            outline_color=outline_color,
         )
         self.renderer_module.render(
             tid=spy.grid(shape=(self._render_target.height, self._render_target.width)),
